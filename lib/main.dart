@@ -2,16 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:camera/camera.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 // --- ML KIT IMPORTS ---
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart'; 
 
-// --- NEW PAGE IMPORTS ---
+// --- ALL PAGE IMPORTS ---
 import 'settings_page.dart';
 import 'history_page.dart';
-import 'profile_page.dart';
-import 'tts_manager.dart'; // Global TTS Manager import
+import 'profile_page.dart'; 
+import 'tts_manager.dart'; 
+import 'phrase_editor_page.dart'; 
 
 // This global variable is needed for the app initialization
 late CameraDescription firstCamera;
@@ -20,6 +20,9 @@ Future<void> main() async {
   // Ensure that plugin services are initialized so that `availableCameras()`
   // can be called before `runApp()`
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize TTS manager (loads settings, sets up engine)
+  ttsManager; 
 
   // Obtain a list of the available cameras on the device.
   final cameras = await availableCameras();
@@ -58,16 +61,18 @@ class UnmuteApp extends StatelessWidget {
         '/': (context) => const WelcomePage(),
         '/signup': (context) => const SignupPage(),
         '/login': (context) => const LoginPage(),
-        '/home': (context) => HomePage(camera: camera),
-        // --- ADDED NEW PAGE ROUTES ---
+        // --- ROUTE TO NEW MAIN LAYOUT ---
+        '/home': (context) => MainLayout(camera: camera), 
         '/settings': (context) => const SettingsPage(),
         '/history': (context) => const HistoryPage(),
-        '/profile': (context) => const ProfilePage(),
+        '/profile': (context) => const NewProfilePage(), 
+        '/phrase_editor': (context) => const PhraseEditorPage(), 
       },
     );
   }
 }
 
+// --- WELCOME PAGE (Matches new design) ---
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
 
@@ -111,36 +116,38 @@ class WelcomePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 40),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo[900],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                // --- Sign Up Button ---
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo[900],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 80, vertical: 15),
-                    minimumSize:
-                        const Size(200, 50),
+                    onPressed: () => Navigator.pushNamed(context, '/signup'),
+                    child: const Text("Sign Up", style: TextStyle(fontSize: 16)),
                   ),
-                  onPressed: () => Navigator.pushNamed(context, '/signup'),
-                  child: const Text("Sign Up"),
                 ),
                 const SizedBox(height: 15),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.indigo[900],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                // --- Login Button ---
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo[900],
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 80, vertical: 15),
-                    minimumSize:
-                        const Size(200, 50),
+                    onPressed: () => Navigator.pushNamed(context, '/login'),
+                    child: const Text("Login →", style: TextStyle(fontSize: 16)),
                   ),
-                  onPressed: () => Navigator.pushNamed(context, '/login'),
-                  child: const Text("Login →"),
                 ),
               ],
             ),
@@ -151,6 +158,7 @@ class WelcomePage extends StatelessWidget {
   }
 }
 
+// --- SIGNUP PAGE (Rebuilt to match image_8b0db0.png) ---
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
 
@@ -172,28 +180,13 @@ class _SignupPageState extends State<SignupPage> {
     if (!_formKey.currentState!.validate()) {
       return;
     }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-      _successMessage = '';
-    });
-
-    // Simulate network delay
+    setState(() { _isLoading = true; _errorMessage = ''; _successMessage = ''; });
     await Future.delayed(const Duration(seconds: 1));
-
     if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _successMessage = 'Registration successful! Proceeding to login.';
-      });
+      setState(() { _isLoading = false; _successMessage = 'Registration successful!'; });
     }
-
-    // Go back to login after success message
     Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (mounted) { Navigator.pop(context); }
     });
   }
 
@@ -209,7 +202,6 @@ class _SignupPageState extends State<SignupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Sign Up"),
         backgroundColor: Colors.transparent, 
         elevation: 0, 
         foregroundColor: Colors.black87,
@@ -217,10 +209,27 @@ class _SignupPageState extends State<SignupPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // --- Header Content ---
+            Text(
+              "Welcome to",
+              style: TextStyle(fontSize: 18, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "UNMUTE.AI",
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo[900],
+              ),
+            ),
             const SizedBox(height: 20),
+            Icon(Icons.mic, size: 80, color: Colors.indigo[900]),
+            const SizedBox(height: 30),
+
+            // --- Form Container ---
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.only(top: 20),
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 color: Colors.indigo[900],
@@ -230,13 +239,14 @@ class _SignupPageState extends State<SignupPage> {
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
-                      "Create Account",
+                      "Sign Up",
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 30),
@@ -246,6 +256,8 @@ class _SignupPageState extends State<SignupPage> {
                     const SizedBox(height: 20),
                     _buildTextField(_passwordController, "Password", true),
                     const SizedBox(height: 12),
+                    
+                    // --- Error/Success Messages ---
                     if (_errorMessage.isNotEmpty)
                       Center(
                         child: Text(
@@ -263,33 +275,34 @@ class _SignupPageState extends State<SignupPage> {
                         ),
                       ),
                     const SizedBox(height: 18),
+
+                    // --- Next Button ---
                     Center(
                       child: _isLoading
                           ? const CircularProgressIndicator(color: Colors.white)
                           : OutlinedButton(
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 50, vertical: 15),
+                                    horizontal: 80, vertical: 15),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(30)),
                                 side: const BorderSide(color: Colors.white),
                                 foregroundColor: Colors.white,
-                                minimumSize:
-                                    const Size(150, 50),
                               ),
                               onPressed: _registerUser,
-                              child: const Text("Sign Up"),
+                              child: const Text("Next"),
                             ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
+
+                    // --- Sign In Link ---
                     Center(
                       child: GestureDetector(
                         onTap: () {
                           if (Navigator.canPop(context)) {
                             Navigator.pop(context);
                           } else {
-                            Navigator.pushReplacementNamed(
-                                context, '/login');
+                            Navigator.pushReplacementNamed(context, '/login');
                           }
                         },
                         child: Text.rich(
@@ -302,9 +315,7 @@ class _SignupPageState extends State<SignupPage> {
                                 style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    decoration:
-                                        TextDecoration.underline
-                                    ),
+                                    decoration: TextDecoration.underline),
                               ),
                             ],
                           ),
@@ -321,49 +332,9 @@ class _SignupPageState extends State<SignupPage> {
       ),
     );
   }
+}
 
-  Widget _buildTextField(
-      TextEditingController controller, String label, bool isPassword) {
-    return TextFormField(
-      controller: controller,
-      obscureText: isPassword,
-      style: const TextStyle(color: Colors.black87),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFEAF3F5),
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[700]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-        prefixIcon: Icon(
-          isPassword
-              ? Icons.lock_outline
-              : (label == "Email"
-                  ? Icons.email_outlined
-                  : Icons.person_outline),
-          color: Colors.grey[600],
-        ),
-      ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your $label';
-        }
-        if (label == "Email" && !value.contains('@')) {
-          return 'Please enter a valid email';
-        }
-        if (label == "Password" && value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-    );
-  }
-} 
-
+// --- LOGIN PAGE (Rebuilt to match image_8b6028.png) ---
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -383,17 +354,9 @@ class _LoginPageState extends State<LoginPage> {
     if (!_formKey.currentState!.validate()) {
       return; 
     }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = '';
-    });
-
-    // Simulate network delay and successful login
+    setState(() { _isLoading = true; _errorMessage = ''; });
     await Future.delayed(const Duration(seconds: 1));
-
     if (mounted) {
-      // Navigate immediately to the home page
       Navigator.pushReplacementNamed(context, '/home');
     }
   }
@@ -404,7 +367,6 @@ class _LoginPageState extends State<LoginPage> {
     _passwordController.dispose();
     super.dispose();
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -418,7 +380,13 @@ class _LoginPageState extends State<LoginPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 20),
+            // --- Header Content ---
+            const SizedBox(height: 10),
+            Text(
+              "Log in to continue",
+              style: TextStyle(fontSize: 18, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 8),
             Text(
               "UNMUTE.AI",
               style: TextStyle(
@@ -427,13 +395,13 @@ class _LoginPageState extends State<LoginPage> {
                 color: Colors.indigo[900],
               ),
             ),
-            const SizedBox(height: 10),
-            const Text("Log in to continue",
-                style: TextStyle(fontSize: 16, color: Colors.black54)),
+            const SizedBox(height: 20),
+            Icon(Icons.mic, size: 80, color: Colors.indigo[900]),
             const SizedBox(height: 30),
+            
+            // --- Form Container ---
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.only(top: 20),
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 color: Colors.indigo[900],
@@ -443,13 +411,14 @@ class _LoginPageState extends State<LoginPage> {
               child: Form(
                 key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const Text(
                       "Log In",
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 26,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 30),
@@ -457,31 +426,36 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 20),
                     _buildTextField(_passwordController, "Password", true), 
                     const SizedBox(height: 12),
-                      if (_errorMessage.isNotEmpty)
-                        Center(
-                          child: Text(
-                            _errorMessage,
-                            style: TextStyle(color: Colors.red[300], fontSize: 14),
-                            textAlign: TextAlign.center,
-                          ),
+                    
+                    // --- Error Message ---
+                    if (_errorMessage.isNotEmpty)
+                      Center(
+                        child: Text(
+                          _errorMessage,
+                          style: TextStyle(color: Colors.red[300], fontSize: 14),
+                          textAlign: TextAlign.center,
                         ),
+                      ),
                     const SizedBox(height: 18),
+
+                    // --- Login Button ---
                     Center(
                       child: _isLoading ? const CircularProgressIndicator(color: Colors.white,) : OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 50, vertical: 15),
+                              horizontal: 80, vertical: 15),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30)),
                           side: const BorderSide(color: Colors.white),
                           foregroundColor: Colors.white,
-                          minimumSize: const Size(150, 50),
                         ),
                         onPressed: _loginUser,
                         child: const Text("Login"),
                       ),
                     ),
                     const SizedBox(height: 15),
+
+                    // --- Forgot Password ---
                     Center(
                         child: TextButton(
                       onPressed: () {
@@ -499,11 +473,12 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     )),
                     const SizedBox(height: 20),
+
+                    // --- Sign Up Link ---
                     Center(
                       child: GestureDetector(
                         onTap: () {
-                          Navigator.pushReplacementNamed(
-                              context, '/signup'); 
+                          Navigator.pushReplacementNamed(context, '/signup'); 
                         },
                         child: Text.rich(
                           TextSpan(
@@ -532,25 +507,29 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+}
 
-  Widget _buildTextField(
-      TextEditingController controller, String label, bool isPassword) {
-    return TextFormField(
-      controller: controller,
-      obscureText: isPassword,
-      style: const TextStyle(color: Colors.black87),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFEAF3F5),
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[700]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 15.0, horizontal: 20.0),
-        prefixIcon: Icon(
+// --- Helper for Login/Signup TextFields ---
+Widget _buildTextField(
+    TextEditingController controller, String label, bool isPassword) {
+  return TextFormField(
+    controller: controller,
+    obscureText: isPassword,
+    style: const TextStyle(color: Colors.black87), // Input text color
+    decoration: InputDecoration(
+      filled: true,
+      fillColor: const Color(0xFFEAF3F5),
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey[700]),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding:
+          const EdgeInsets.symmetric(vertical: 18.0, horizontal: 25.0), // Increased padding
+      prefixIcon: Padding(
+        padding: const EdgeInsets.only(left: 15.0, right: 10.0), // Adjust icon padding
+        child: Icon(
           isPassword
               ? Icons.lock_outline
               : (label == "Email"
@@ -559,41 +538,98 @@ class _LoginPageState extends State<LoginPage> {
           color: Colors.grey[600],
         ),
       ),
-      validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your $label';
-        }
-        if (label == "Email" && !value.contains('@')) {
-          return 'Please enter a valid email';
-        }
-        if (label == "Password" && value.length < 6) {
-          return 'Password must be at least 6 characters';
-        }
-        return null;
-      },
-    );
-  }
+    ),
+    validator: (value) {
+      if (value == null || value.isEmpty) {
+        return 'Please enter your $label';
+      }
+      if (label == "Email" && !value.contains('@')) {
+        return 'Please enter a valid email';
+      }
+      if (label == "Password" && value.length < 6) {
+        return 'Password must be at least 6 characters';
+      }
+      return null;
+    },
+  );
 } 
 
 
-class HomePage extends StatefulWidget {
+// --- NEW: MAIN LAYOUT WIDGET ---
+// This widget manages the Bottom Navigation Bar and switches pages
+class MainLayout extends StatefulWidget {
+  final CameraDescription camera;
+  const MainLayout({super.key, required this.camera});
+
+  @override
+  State<MainLayout> createState() => _MainLayoutState();
+}
+
+class _MainLayoutState extends State<MainLayout> {
+  int _selectedIndex = 0;
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    // Define the pages for the bottom nav bar
+    _pages = [
+      GestureHomePage(camera: widget.camera), // Tab 0
+      const PhraseEditorPage(), // Tab 1
+      const NewProfilePage(), // Tab 2 (Using the new profile page)
+    ];
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _pages[_selectedIndex], // Show the selected page
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline_rounded),
+            label: 'Phrases',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline_rounded),
+            label: 'Profile',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.indigo[900],
+        onTap: _onItemTapped,
+      ),
+    );
+  }
+}
+
+// --- GESTURE HOME PAGE (Formerly HomePage) ---
+class GestureHomePage extends StatefulWidget {
   final CameraDescription camera;
 
-  const HomePage({
+  const GestureHomePage({
     super.key,
     required this.camera,
   });
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<GestureHomePage> createState() => _GestureHomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _GestureHomePageState extends State<GestureHomePage> {
   String _outputText = "Your recognized text will appear here";
   bool _isCameraOn = false;
   
-  // We use the global ttsManager instead of managing FlutterTts locally
-  // late FlutterTts _flutterTts;
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
 
@@ -607,7 +643,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState.call();
-    // TTS initialization is now handled globally by ttsManager
     _initializePoseDetector();
   }
 
@@ -651,76 +686,47 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _processCameraImage(CameraImage image) async {
     if (_isDetectingPoses || _isGestureOnCooldown) return;
-
     if (!mounted) return;
-
-    setState(() {
-      _isDetectingPoses = true;
-    });
+    setState(() { _isDetectingPoses = true; });
 
     try {
-      final InputImage inputImage = _createInputImageFromCameraImage(image);
-      
+      // --- FIX: Call the function *without* the underscore ---
+      final InputImage inputImage = createInputImageFromCameraImage(image);
       final List<Pose> poses = await _poseDetector.processImage(inputImage);
-      
-      if (mounted) {
-        _analyzePoses(poses);
-      }
-
+      if (mounted) { _analyzePoses(poses); }
     } catch (e) {
       print("Error processing image: $e");
     } finally {
-      if (mounted) {
-        setState(() {
-          _isDetectingPoses = false;
-        });
-      }
+      if (mounted) { setState(() { _isDetectingPoses = false; }); }
     }
   }
 
   void _analyzePoses(List<Pose> poses) {
-    if (poses.isEmpty) {
-      return;
-    }
+    if (poses.isEmpty || !mounted) return;
     final Pose firstPose = poses.first;
 
-    if (isThumbsUp(firstPose)) {
-      _triggerGesture("Hello, Thumbs Up!");
-    }
-    else if (isHandsUp(firstPose)) {
-      _triggerGesture("Hello, you are waving!");
-    }
-    else if (isHandsOnHead(firstPose)) {
-      _triggerGesture("Why are your hands on your head?");
-    }
-    else if (isStopGesture(firstPose)) {
-      _triggerGesture("Stop. I need a moment.");
-    }
-    else if (isClapping(firstPose)) {
-      _triggerGesture("Attention, please!");
-    }
-    else if (isPointing(firstPose)) {
-      _triggerGesture("Look over there!");
-    }
+    if (isThumbsUp(firstPose)) { _triggerGesture("Hello, Thumbs Up!"); }
+    else if (isHandsUp(firstPose)) { _triggerGesture("Hello, you are waving!"); }
+    else if (isHandsOnHead(firstPose)) { _triggerGesture("Why are your hands on your head?"); }
+    else if (isStopGesture(firstPose)) { _triggerGesture("Stop. I need a moment."); }
+    else if (isClapping(firstPose)) { _triggerGesture("Attention, please!"); }
+    else if (isPointing(firstPose)) { _triggerGesture("Look over there!"); }
   }
 
 
   void _triggerGesture(String text) {
-    if (_isGestureOnCooldown) return;
+    if (_isGestureOnCooldown || !mounted) return;
 
     setState(() {
       _outputText = text;
       _isGestureOnCooldown = true;
     });
-    // Use the global manager for speaking
     ttsManager.speak(text);
 
     _gestureCooldownTimer?.cancel();
     _gestureCooldownTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        setState(() {
-          _isGestureOnCooldown = false;
-        });
+        setState(() { _isGestureOnCooldown = false; });
       }
     });
   }
@@ -732,7 +738,6 @@ class _HomePageState extends State<HomePage> {
     _cameraController?.dispose();
     _poseDetector.close();
     _gestureCooldownTimer?.cancel();
-    // We do NOT dispose FlutterTts here, as it's globally managed by ttsManager
     super.dispose();
   }
 
@@ -740,18 +745,22 @@ class _HomePageState extends State<HomePage> {
     if (_isCameraOn) {
       await _cameraController?.stopImageStream();
       await _cameraController?.dispose();
-      setState(() {
-        _isCameraOn = false;
-        _isCameraInitialized = false;
-        _cameraController = null;
-        _outputText = "Camera is off";
-      });
+       if (mounted) {
+        setState(() {
+          _isCameraOn = false;
+          _isCameraInitialized = false;
+          _cameraController = null;
+          _outputText = "Camera is off";
+        });
+      }
       print("Camera stopping...");
     } else {
-      setState(() {
-        _isCameraOn = true;
-        _outputText = "Initializing camera...";
-      });
+      if (mounted) {
+        setState(() {
+          _isCameraOn = true;
+          _outputText = "Initializing camera...";
+        });
+      }
       print("Camera starting...");
       await _initializeCamera();
       
@@ -766,17 +775,8 @@ class _HomePageState extends State<HomePage> {
   void _speakText() {
     if (_outputText.isNotEmpty) {
       print("Speaking: $_outputText");
-      // Use the global manager for speaking
       ttsManager.speak(_outputText);
     }
-  }
-
-  void _onQuickPhraseTapped(String phrase) {
-    setState(() {
-      _outputText = phrase;
-    });
-    // Use the global manager for speaking
-    ttsManager.speak(phrase);
   }
 
   @override
@@ -785,57 +785,19 @@ class _HomePageState extends State<HomePage> {
     const Color backgroundColor = Color(0xFFF4F8FA); // Light blue/white
     const Color cardColor = Colors.white;
 
+    // This Scaffold is now the BODY of the MainLayout
     return Scaffold(
       backgroundColor: backgroundColor,
-      // --- ADDED NAVIGATION DRAWER ---
-      endDrawer: Drawer(
-        backgroundColor: primaryColor,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.indigo[900],
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text('UNMUTE.AI', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text('Welcome, User!', style: TextStyle(color: Colors.white70, fontSize: 16)),
-                ],
-              ),
-            ),
-            _buildDrawerTile(Icons.person, "Profile", primaryColor, () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/profile');
-            }),
-            _buildDrawerTile(Icons.settings, "Settings", primaryColor, () {
-              Navigator.pop(context); // Close drawer
-              Navigator.pushNamed(context, '/settings'); // Navigate to Settings Page
-            }),
-            _buildDrawerTile(Icons.history, "History", primaryColor, () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, '/history');
-            }),
-            const Divider(color: Colors.white54, indent: 16, endIndent: 16),
-            _buildDrawerTile(Icons.logout, "Log Out", primaryColor, () {
-              // Clear navigation stack and go to the Welcome Page
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (Route<dynamic> route) => false);
-            }),
-          ],
-        ),
-      ),
-      // --- END OF NAVIGATION DRAWER ---
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        // Remove the back arrow
+        automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Hi, User!",
+              "Hi, User!", // Placeholder
               style: const TextStyle(
                 color: primaryColor,
                 fontWeight: FontWeight.bold,
@@ -851,18 +813,6 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        actions: [
-          // --- MODIFIED TO OPEN DRAWER ---
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: primaryColor, size: 30),
-              onPressed: () {
-                Scaffold.of(context).openEndDrawer();
-              },
-            ),
-          ),
-          const SizedBox(width: 10),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -871,20 +821,9 @@ class _HomePageState extends State<HomePage> {
             _buildCameraCard(primaryColor, cardColor),
             const SizedBox(height: 20),
             _buildOutputCard(primaryColor, cardColor),
-            const SizedBox(height: 20),
-            _buildQuickPhrasesCard(primaryColor, cardColor),
           ],
         ),
       ),
-    );
-  }
-  
-  // --- HELPER WIDGET FOR DRAWER TILES ---
-  Widget _buildDrawerTile(IconData icon, String title, Color primaryColor, VoidCallback onTap) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.white70),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 16)),
-      onTap: onTap,
     );
   }
   
@@ -919,6 +858,7 @@ class _HomePageState extends State<HomePage> {
                   onPressed: _toggleCamera,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isCameraOn ? Colors.red : primaryColor,
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -935,12 +875,11 @@ class _HomePageState extends State<HomePage> {
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: ClipRRect( // Clip the preview to the container's border radius
+              child: ClipRRect( 
                 borderRadius: BorderRadius.circular(15),
                 child: Center(
                   child: (_isCameraOn && _isCameraInitialized && _cameraController != null && _cameraController!.value.isInitialized)
                       ? AspectRatio(
-                          // Use a built-in aspect ratio to prevent distortion
                           aspectRatio: _cameraController!.value.aspectRatio,
                           child: CameraPreview(_cameraController!),
                         )
@@ -1023,190 +962,113 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
-  Widget _buildQuickPhrasesCard(Color primaryColor, Color cardColor) {
-    return Card(
-      color: cardColor,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Quick Phrases",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 2.5,
-              children: [
-                _buildPhraseButton("Hello"),
-                _buildPhraseButton("I need help"),
-                _buildPhraseButton("Thank you"),
-                _buildPhraseButton("Goodbye"),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhraseButton(String phrase) {
-    return FilledButton.tonal(
-      onPressed: () => _onQuickPhraseTapped(phrase),
-      style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-      ),
-      child: Text(
-        phrase,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-
-  InputImage _createInputImageFromCameraImage(CameraImage image) {
-    final cameraRotation = InputImageRotation.rotation270deg;
-
-    final InputImageFormat inputImageFormat =
-        InputImageFormatValue.fromRawValue(image.format.raw) ??
-            InputImageFormat.nv21;
-    
-    final metadata = InputImageMetadata(
-      size: Size(image.width.toDouble(), image.height.toDouble()),
-      rotation: cameraRotation,
-      format: inputImageFormat,
-      bytesPerRow: image.planes.first.bytesPerRow,
-    );
-
-    final bytes = image.planes.first.bytes;
-
-    return InputImage.fromBytes(
-      bytes: bytes,
-      metadata: metadata,
-    );
-  }
-
-  // --- START GESTURE LOGIC ---
-
-  bool isThumbsUp(Pose pose) {
-    final PoseLandmark? leftThumb = pose.landmarks[PoseLandmarkType.leftThumb];
-    final PoseLandmark? leftPinky = pose.landmarks[PoseLandmarkType.leftPinky];
-    final PoseLandmark? rightThumb = pose.landmarks[PoseLandmarkType.rightThumb];
-    final PoseLandmark? rightPinky = pose.landmarks[PoseLandmarkType.rightPinky];
-
-    if (leftThumb == null || leftPinky == null || rightThumb == null || rightPinky == null) {
-      return false;
-    }
-
-    bool rightThumbsUp = (rightThumb.y < rightPinky.y);
-    bool leftThumbsUp = (leftThumb.y < leftPinky.y);
-
-    return leftThumbsUp || rightThumbsUp;
-  }
-
-  bool isHandsUp(Pose pose) {
-    final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-    final PoseLandmark? leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
-    final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
-    final PoseLandmark? rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
-
-    if (leftWrist == null || leftShoulder == null || rightWrist == null || rightShoulder == null) {
-      return false;
-    }
-
-    bool leftHandUp = leftWrist.y < leftShoulder.y;
-    bool rightHandUp = rightWrist.y < rightShoulder.y;
-
-    return leftHandUp || rightHandUp;
-  }
-
-  bool isHandsOnHead(Pose pose) {
-    final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-    final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
-    final PoseLandmark? nose = pose.landmarks[PoseLandmarkType.nose];
-
-    if (leftWrist == null || rightWrist == null || nose == null) {
-      return false;
-    }
-
-    bool bothHandsUp = (leftWrist.y < nose.y && rightWrist.y < nose.y);
-    
-    return bothHandsUp;
-  }
-  
-  bool isStopGesture(Pose pose) {
-    final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-    final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
-    final PoseLandmark? leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
-    final PoseLandmark? rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
-    
-    if (leftWrist == null || rightWrist == null || leftElbow == null || rightElbow == null) {
-      return false;
-    }
-
-    bool handsExtended = (leftWrist.y < leftElbow.y) && (rightWrist.y < rightElbow.y);
-    // Check if arms are spread out horizontally (wrists are far apart on the X-axis)
-    bool armsSpread = (rightWrist.x - leftWrist.x).abs() > (rightElbow.x - leftElbow.x).abs();
-
-    return handsExtended && armsSpread;
-  }
-
-  // --- NEW GESTURE: CLAP ---
-  bool isClapping(Pose pose) {
-    final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-    final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
-
-    if (leftWrist == null || rightWrist == null) {
-      return false;
-    }
-
-    // Check if wrists are close horizontally (X-axis) and roughly aligned vertically (Y-axis)
-    final double horizontalDistance = (leftWrist.x - rightWrist.x).abs();
-    final double verticalAlignment = (leftWrist.y - rightWrist.y).abs();
-    final double alignmentThreshold = 0.05; // 5% of screen width (approx)
-
-    return horizontalDistance < alignmentThreshold && verticalAlignment < alignmentThreshold;
-  }
-
-  // --- NEW GESTURE: POINT ---
-  bool isPointing(Pose pose) {
-    final PoseLandmark? leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
-    final PoseLandmark? rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
-    final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
-    final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
-
-    if (leftIndex == null || rightIndex == null || leftWrist == null || rightWrist == null) {
-      return false;
-    }
-
-    // Simple check: Is the index finger significantly far from the wrist on the X-axis?
-    bool isLeftPointingOut = (leftIndex.x - leftWrist.x).abs() > 0.1;
-    bool isRightPointingOut = (rightIndex.x - rightWrist.x).abs() > 0.1;
-
-    // Check if index finger is the highest (Y is smallest) point in the hand region
-    bool leftFingerIsHigh = leftIndex.y < leftWrist.y;
-    bool rightFingerIsHigh = rightIndex.y < rightWrist.y;
-
-
-    return (isLeftPointingOut && leftFingerIsHigh) || (isRightPointingOut && rightFingerIsHigh);
-  }
 }
+
+// --- GESTURE LOGIC MOVED OUTSIDE THE CLASS ---
+
+// --- FIX: This function is now *outside* the class ---
+InputImage createInputImageFromCameraImage(CameraImage image) {
+  final cameraRotation = InputImageRotation.rotation270deg;
+
+  final InputImageFormat inputImageFormat =
+      InputImageFormatValue.fromRawValue(image.format.raw) ??
+          InputImageFormat.nv21;
+  
+  final metadata = InputImageMetadata(
+    size: Size(image.width.toDouble(), image.height.toDouble()),
+    rotation: cameraRotation,
+    format: inputImageFormat,
+    bytesPerRow: image.planes.first.bytesPerRow,
+  );
+
+  final bytes = image.planes.first.bytes;
+
+  return InputImage.fromBytes(
+    bytes: bytes,
+    metadata: metadata,
+  );
+}
+
+bool isThumbsUp(Pose pose) {
+  final PoseLandmark? leftThumb = pose.landmarks[PoseLandmarkType.leftThumb];
+  final PoseLandmark? leftPinky = pose.landmarks[PoseLandmarkType.leftPinky];
+  final PoseLandmark? rightThumb = pose.landmarks[PoseLandmarkType.rightThumb];
+  final PoseLandmark? rightPinky = pose.landmarks[PoseLandmarkType.rightPinky];
+
+  if (leftThumb == null || leftPinky == null || rightThumb == null || rightPinky == null) {
+    return false;
+  }
+  bool rightThumbsUp = (rightThumb.y < rightPinky.y);
+  bool leftThumbsUp = (leftThumb.y < leftPinky.y);
+  return leftThumbsUp || rightThumbsUp;
+}
+
+bool isHandsUp(Pose pose) {
+  final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+  final PoseLandmark? leftShoulder = pose.landmarks[PoseLandmarkType.leftShoulder];
+  final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+  final PoseLandmark? rightShoulder = pose.landmarks[PoseLandmarkType.rightShoulder];
+
+  if (leftWrist == null || leftShoulder == null || rightWrist == null || rightShoulder == null) {
+    return false;
+  }
+  bool leftHandUp = leftWrist.y < leftShoulder.y;
+  bool rightHandUp = rightWrist.y < rightShoulder.y;
+  return leftHandUp || rightHandUp;
+}
+
+bool isHandsOnHead(Pose pose) {
+  final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+  final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+  final PoseLandmark? nose = pose.landmarks[PoseLandmarkType.nose];
+
+  if (leftWrist == null || rightWrist == null || nose == null) {
+    return false;
+  }
+  bool bothHandsUp = (leftWrist.y < nose.y && rightWrist.y < nose.y);
+  return bothHandsUp;
+}
+
+bool isStopGesture(Pose pose) {
+  final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+  final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+  final PoseLandmark? leftElbow = pose.landmarks[PoseLandmarkType.leftElbow];
+  final PoseLandmark? rightElbow = pose.landmarks[PoseLandmarkType.rightElbow];
+  
+  if (leftWrist == null || rightWrist == null || leftElbow == null || rightElbow == null) {
+    return false;
+  }
+  bool handsExtended = (leftWrist.y < leftElbow.y) && (rightWrist.y < rightElbow.y);
+  bool armsSpread = (rightWrist.x - leftWrist.x).abs() > (rightElbow.x - leftElbow.x).abs();
+  return handsExtended && armsSpread;
+}
+
+bool isClapping(Pose pose) {
+  final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+  final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+
+  if (leftWrist == null || rightWrist == null) {
+    return false;
+  }
+  final double horizontalDistance = (leftWrist.x - rightWrist.x).abs();
+  final double verticalAlignment = (leftWrist.y - rightWrist.y).abs();
+  final double alignmentThreshold = 0.1; 
+
+  return horizontalDistance < alignmentThreshold && verticalAlignment < alignmentThreshold;
+}
+
+bool isPointing(Pose pose) {
+  final PoseLandmark? leftIndex = pose.landmarks[PoseLandmarkType.leftIndex];
+  final PoseLandmark? rightIndex = pose.landmarks[PoseLandmarkType.rightIndex];
+  final PoseLandmark? leftWrist = pose.landmarks[PoseLandmarkType.leftWrist];
+  final PoseLandmark? rightWrist = pose.landmarks[PoseLandmarkType.rightWrist];
+
+  if (leftIndex == null || rightIndex == null || leftWrist == null || rightWrist == null) {
+    return false;
+  }
+  bool isLeftPointingOut = (leftIndex.x - leftWrist.x).abs() > 0.1;
+  bool isRightPointingOut = (rightIndex.x - rightWrist.x).abs() > 0.1;
+  bool leftFingerIsHigh = leftIndex.y < leftWrist.y;
+  bool rightFingerIsHigh = rightIndex.y < rightWrist.y;
+  return (isLeftPointingOut && leftFingerIsHigh) || (isRightPointingOut && rightFingerIsHigh);
+}  

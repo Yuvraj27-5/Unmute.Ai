@@ -2,100 +2,127 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Keys for storing data in SharedPreferences
-const String _kPitchKey = 'tts_pitch';
-const String _kSpeedKey = 'tts_speed';
-const String _kHistoryKey = 'tts_history';
-
-// Create a global instance of the manager that can be accessed anywhere
-final ttsManager = TTSManager();
+/// A global manager to handle Text-to-Speech, settings persistence, and history.
+///
+/// By defining it globally, all pages (Home, Settings, History, Editor)
+/// can access the same instance and stay in sync.
+final TTSManager ttsManager = TTSManager();
 
 class TTSManager {
-  final FlutterTts _flutterTts = FlutterTts();
+  late FlutterTts _flutterTts;
+  late SharedPreferences _prefs;
 
-  // ValueNotifiers to hold and notify listeners of state changes
-  // Initial values are defaults, but they will be loaded from storage later
-  final ValueNotifier<double> pitch = ValueNotifier(1.0);
-  final ValueNotifier<double> speed = ValueNotifier(0.5);
-  final ValueNotifier<List<String>> history = ValueNotifier([]);
+  // --- State Notifiers ---
+  // Any widget that listens to these will automatically rebuild when they change.
+  
+  // Settings
+  ValueNotifier<double> speed = ValueNotifier(0.5);
+  ValueNotifier<double> pitch = ValueNotifier(1.0);
+  
+  // History
+  ValueNotifier<List<String>> history = ValueNotifier([]);
+  
+  // Quick Phrases
+  ValueNotifier<List<String>> quickPhrases = ValueNotifier([
+    "Hello",
+    "I need help",
+    "Thank you",
+    "Goodbye"
+  ]);
 
+  // --- Initialization ---
+  // This is called one time when the app starts.
   TTSManager() {
-    _initializeTts();
-    _loadSettings();
+    _initialize();
   }
 
-  // --- Initialization and Persistence ---
+  Future<void> _initialize() async {
+    // Initialize TTS engine
+    _flutterTts = FlutterTts();
+    _setTtsProperties();
 
-  void _initializeTts() {
-    _flutterTts.setLanguage("en-US");
-    // Listen for changes in pitch and speed and update the TTS engine immediately
-    pitch.addListener(() {
-      _flutterTts.setPitch(pitch.value);
-    });
-    speed.addListener(() {
-      _flutterTts.setSpeechRate(speed.value);
-    });
+    // Load saved data from the phone's storage
+    _prefs = await SharedPreferences.getInstance();
+    
+    // Load settings
+    speed.value = _prefs.getDouble('tts_speed') ?? 0.5;
+    pitch.value = _prefs.getDouble('tts_pitch') ?? 1.0;
 
-    // Set initial values once
-    _flutterTts.setPitch(pitch.value);
-    _flutterTts.setSpeechRate(speed.value);
+    // Load history
+    history.value = _prefs.getStringList('tts_history') ?? [];
+    
+    // Load quick phrases
+    quickPhrases.value = _prefs.getStringList('tts_quick_phrases') ?? [
+      "Hello",
+      "I need help",
+      "Thank you",
+      "Goodbye"
+    ];
+
+    // Add listeners to save settings whenever they change
+    speed.addListener(_saveSettings);
+    pitch.addListener(_saveSettings);
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
+  // --- Public Methods ---
 
-    // Load pitch and speed, falling back to defaults if not found
-    pitch.value = prefs.getDouble(_kPitchKey) ?? 1.0;
-    speed.value = prefs.getDouble(_kSpeedKey) ?? 0.5;
+  /// Speaks the given text and adds it to the history.
+  void speak(String text) {
+    // 1. Speak the text
+    _flutterTts.speak(text);
 
-    // Load history, falling back to an empty list
-    history.value = prefs.getStringList(_kHistoryKey) ?? [];
+    // 2. Add to history
+    // We insert at the beginning (index 0) to show the newest item first
+    final currentHistory = List<String>.from(history.value);
+    currentHistory.insert(0, text);
+    history.value = currentHistory; // This notifies all listeners
+    
+    // 3. Save the updated history list
+    _prefs.setStringList('tts_history', history.value);
   }
 
-  Future<void> _saveSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble(_kPitchKey, pitch.value);
-    await prefs.setDouble(_kSpeedKey, speed.value);
+  /// Clears all saved history.
+  void clearHistory() {
+    history.value = [];
+    _prefs.setStringList('tts_history', []);
   }
 
-  Future<void> _saveHistory() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_kHistoryKey, history.value);
+  /// Updates a quick phrase at a specific index and saves the list.
+  void updateQuickPhrase(int index, String newPhrase) {
+    final currentPhrases = List<String>.from(quickPhrases.value);
+    if (index >= 0 && index < currentPhrases.length) {
+      currentPhrases[index] = newPhrase;
+      quickPhrases.value = currentPhrases; // Notifies listeners (like the Home Page)
+      
+      // Save the updated list
+      _prefs.setStringList('tts_quick_phrases', quickPhrases.value);
+    }
   }
 
-  // --- Public State Updaters ---
-
-  void setPitch(double newPitch) {
-    pitch.value = newPitch;
-    _saveSettings();
-  }
+  // --- Setters for Settings ---
+  // These are called by the sliders on the SettingsPage.
 
   void setSpeed(double newSpeed) {
     speed.value = newSpeed;
-    _saveSettings();
   }
 
-  // --- TTS Functionality ---
-
-  Future<void> speak(String text) async {
-    // 1. Speak the text using the current pitch/speed settings
-    await _flutterTts.speak(text);
-
-    // 2. Log the spoken text to history
-    _logHistory(text);
+  void setPitch(double newPitch) {
+    pitch.value = newPitch;
   }
 
-  void _logHistory(String text) {
-    // Add the new text to the beginning of the list (newest first)
-    final updatedHistory = List<String>.from(history.value);
-    updatedHistory.insert(0, text);
+  // --- Private Helper Methods ---
 
-    // Limit history to the last 20 items
-    if (updatedHistory.length > 20) {
-      updatedHistory.removeLast();
-    }
+  /// Saves the current speed and pitch values to the phone's storage.
+  Future<void> _saveSettings() async {
+    await _prefs.setDouble('tts_speed', speed.value);
+    await _prefs.setDouble('tts_pitch', pitch.value);
+    _setTtsProperties();
+  }
 
-    history.value = updatedHistory;
-    _saveHistory(); // Persist the updated history list
+  /// Applies the current properties (speed/pitch) to the TTS engine.
+  void _setTtsProperties() {
+    _flutterTts.setLanguage("en-US");
+    _flutterTts.setSpeechRate(speed.value);
+    _flutterTts.setPitch(pitch.value);
   }
 }

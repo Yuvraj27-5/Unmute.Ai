@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'tts_manager.dart'; // Import the global TTS Manager
+import 'tts_manager.dart'; // <-- FIX: Import the global TTS Manager
 
 // --- FIX: FUNCTION IS MOVED OUTSIDE THE CLASS ---
+// This helper widget builds the styled cards for each setting
 Widget _buildSettingCard({
   required String title,
   required String subtitle,
@@ -129,9 +130,9 @@ class SettingsPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // --- Gesture Settings Section (Placeholder) ---
+            // --- Gesture Settings Section ---
             const Text(
-              "Gesture Recognition Settings",
+              "Gesture & Phrase Settings",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -140,30 +141,13 @@ class SettingsPage extends StatelessWidget {
             ),
             const Divider(),
 
-            _buildSettingCard(
-              title: "Gesture Sensitivity",
-              subtitle: "Controls how precise a gesture needs to be.",
-              settingWidget: Slider(
-                value: 0.7, // Placeholder value
-                min: 0.1,
-                max: 1.0,
-                divisions: 9,
-                label: 'Medium',
-                onChanged: (double newValue) {
-                  // TODO: Implement actual gesture sensitivity logic
-                },
-              ),
-            ),
-            
+            // --- 3. Edit Quick Phrases Button ---
             _buildSettingCard(
               title: "Custom Phrases",
-              subtitle: "Edit the quick phrases used on the Home screen.",
+              subtitle: "Edit the quick phrases used on the Phrases tab.",
               settingWidget: ElevatedButton(
                 onPressed: () {
-                  // TODO: Navigate to an edit screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Custom Phrase Editor TBD')),
-                  );
+                  Navigator.pushNamed(context, '/phrase_editor');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,

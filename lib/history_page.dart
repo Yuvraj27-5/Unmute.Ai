@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'tts_manager.dart'; // Import the global TTS Manager
+import 'tts_manager.dart'; // <-- Import the global TTS Manager
 
 class HistoryPage extends StatelessWidget {
   const HistoryPage({super.key});
@@ -7,8 +7,9 @@ class HistoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF1C2D80);
-
+    
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F8FA),
       appBar: AppBar(
         title: const Text(
           "History",
@@ -17,60 +18,88 @@ class HistoryPage extends StatelessWidget {
         backgroundColor: const Color(0xFFEAF3F5),
         elevation: 0,
         foregroundColor: primaryColor,
+        actions: [
+          // Add a button to clear the history
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: "Clear History",
+            onPressed: () {
+              // Show a confirmation dialog before clearing
+              showDialog(
+                context: context,
+                builder: (BuildContext ctx) {
+                  return AlertDialog(
+                    title: const Text('Clear History?'),
+                    content: const Text('Are you sure you want to delete all spoken phrases? This action cannot be undone.'),
+                    actions: [
+                      TextButton(
+                        child: const Text('Cancel'),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                        child: const Text('Clear All'),
+                        onPressed: () {
+                          ttsManager.clearHistory();
+                          Navigator.of(ctx).pop();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          )
+        ],
       ),
-      // We use ValueListenableBuilder to automatically update the UI
+      // Use ValueListenableBuilder to automatically update the UI
       // whenever a new item is added to the history list in the TTS Manager.
       body: ValueListenableBuilder<List<String>>(
         valueListenable: ttsManager.history,
         builder: (context, historyList, child) {
+          
           if (historyList.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.mic_off, size: 60, color: Colors.grey[400]),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "No recognized phrases yet.",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  Icon(Icons.history_toggle_off, size: 80, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    "No History Yet",
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.grey[600]),
                   ),
-                  const Text(
-                    "Start your camera and use a gesture!",
-                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Gestures you use will appear here.",
+                    style: TextStyle(fontSize: 16, color: Colors.grey[500]),
                   ),
                 ],
               ),
             );
           }
-
+          
           return ListView.builder(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(16),
             itemCount: historyList.length,
             itemBuilder: (context, index) {
-              // History items are stored in reverse chronological order (newest first)
               final phrase = historyList[index];
-              
-              // Note: For simplicity, we are using the current time as the timestamp
-              // since we are not storing history in SharedPreferences or a database.
-              final now = DateTime.now();
-              final timeString = '${now.hour}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-
               return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                elevation: 1,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: Icon(Icons.volume_up, color: primaryColor),
-                  title: Text(
-                    phrase,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                  title: Text(phrase, style: const TextStyle(fontWeight: FontWeight.w500)),
+                  // Add a button to re-speak the phrase
+                  trailing: IconButton(
+                    icon: const Icon(Icons.volume_up_outlined),
+                    color: primaryColor,
+                    onPressed: () {
+                      ttsManager.speak(phrase);
+                    },
                   ),
-                  subtitle: Text(
-                    'Spoken at: $timeString',
-                    style: TextStyle(color: Colors.grey[500]),
-                  ),
-                  // Tapping the history item replays the speech
-                  onTap: () => ttsManager.speak(phrase),
                 ),
               );
             },

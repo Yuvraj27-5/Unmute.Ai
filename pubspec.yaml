@@ -1,30 +1,28 @@
 name: flutter_unmute
 description: "A new Flutter project."
-# The following line prevents the package from being accidentally published to
-# pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' 
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' # Updated to a modern SDK constraint
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-  # --- UI and Core ---
+  
   cupertino_icons: ^1.0.8
-
-  # --- CAMERA AND ML KIT ---
+  
+  # --- PACKAGES FOR CAMERA AND TTS ---
   camera: ^0.10.5+9
-  google_mlkit_commons: ^0.11.0 
-  google_mlkit_pose_detection: ^0.14.0
-  
-  # --- TTS and Persistence ---
   flutter_tts: ^3.8.3
-  shared_preferences: ^2.2.2 # For saving user settings permanently
   
+  # --- ML KIT PACKAGES ---
+  google_mlkit_commons: ^0.11.0
+  google_mlkit_pose_detection: ^0.14.0
+
+  # --- SETTINGS & PHRASE SAVING ---
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_test:
