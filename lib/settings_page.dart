@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'tts_manager.dart'; // <-- FIX: Import the global TTS Manager
+import 'tts_manager.dart'; // <-- Import the global TTS Manager
 
 // --- FIX: FUNCTION IS MOVED OUTSIDE THE CLASS ---
 // This helper widget builds the styled cards for each setting

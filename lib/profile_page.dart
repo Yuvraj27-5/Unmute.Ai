@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'tts_manager.dart'; // <-- Import the manager
 
 // This is the new Profile Page, which is the 3rd tab in the bottom nav bar.
 // It contains navigation to Settings, History, and the Log Out button.
@@ -26,7 +27,7 @@ class NewProfilePage extends StatelessWidget {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            // --- User Info Card ---
+            // --- User Info Card (NOW DYNAMIC) ---
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -43,20 +44,32 @@ class NewProfilePage extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "Yuvraj", // Placeholder
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        // --- Listen to Username ---
+                        ValueListenableBuilder<String>(
+                          valueListenable: ttsManager.username,
+                          builder: (context, name, child) {
+                            return Text(
+                              name, // Dynamic name
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            );
+                          },
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          "yuvraj@email.com", // Placeholder
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                          ),
+                        // --- Listen to Email ---
+                        ValueListenableBuilder<String>(
+                          valueListenable: ttsManager.email,
+                          builder: (context, email, child) {
+                            return Text(
+                              email, // Dynamic email
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -69,12 +82,23 @@ class NewProfilePage extends StatelessWidget {
             
             // --- Navigation Buttons ---
             
+            // --- NEW: Edit Profile Button ---
+            _buildProfileTile(
+              context: context,
+              icon: Icons.edit_outlined,
+              title: "Edit Profile",
+              subtitle: "Change your name, email, or phone",
+              onTap: () {
+                Navigator.pushNamed(context, '/edit_profile');
+              },
+            ),
+
             // Settings Button
             _buildProfileTile(
               context: context,
               icon: Icons.settings_outlined,
               title: "Settings",
-              subtitle: "Adjust TTS voice, gestures, and phrases",
+              subtitle: "Adjust TTS voice and gestures",
               onTap: () {
                 Navigator.pushNamed(context, '/settings');
               },

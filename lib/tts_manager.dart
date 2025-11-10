@@ -3,9 +3,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// A global manager to handle Text-to-Speech, settings persistence, and history.
-///
-/// By defining it globally, all pages (Home, Settings, History, Editor)
-/// can access the same instance and stay in sync.
 final TTSManager ttsManager = TTSManager();
 
 class TTSManager {
@@ -13,35 +10,20 @@ class TTSManager {
   late SharedPreferences _prefs;
 
   // --- State Notifiers ---
-  // Any widget that listens to these will automatically rebuild when they change.
-  
-  // Settings
   ValueNotifier<double> speed = ValueNotifier(0.5);
   ValueNotifier<double> pitch = ValueNotifier(1.0);
-  
-  // History
   ValueNotifier<List<String>> history = ValueNotifier([]);
-  
-  // Quick Phrases
-  ValueNotifier<List<String>> quickPhrases = ValueNotifier([
-    "Hello",
-    "I need help",
-    "Thank you",
-    "Goodbye"
-  ]);
+  ValueNotifier<List<String>> quickPhrases = ValueNotifier([]);
+  ValueNotifier<String> username = ValueNotifier("Yuvraj");
+  ValueNotifier<String> email = ValueNotifier("yuvraj@email.com");
+  ValueNotifier<String> phoneNumber = ValueNotifier("+91 12345 67890");
+  ValueNotifier<String> currentOutputText = ValueNotifier("Your recognized text will appear here");
 
   // --- Initialization ---
-  // This is called one time when the app starts.
-  TTSManager() {
-    _initialize();
-  }
-
-  Future<void> _initialize() async {
-    // Initialize TTS engine
+  // --- FIX: Made initialize() a separate, await-able function ---
+  Future<void> initialize() async {
     _flutterTts = FlutterTts();
     _setTtsProperties();
-
-    // Load saved data from the phone's storage
     _prefs = await SharedPreferences.getInstance();
     
     // Load settings
@@ -59,6 +41,11 @@ class TTSManager {
       "Goodbye"
     ];
 
+    // Load Profile Info
+    username.value = _prefs.getString('profile_name') ?? "Yuvraj";
+    email.value = _prefs.getString('profile_email') ?? "yuvraj@email.com";
+    phoneNumber.value = _prefs.getString('profile_phone') ?? "+91 12345 67890";
+
     // Add listeners to save settings whenever they change
     speed.addListener(_saveSettings);
     pitch.addListener(_saveSettings);
@@ -66,42 +53,66 @@ class TTSManager {
 
   // --- Public Methods ---
 
-  /// Speaks the given text and adds it to the history.
   void speak(String text) {
-    // 1. Speak the text
+    if (text.isEmpty || text == "Your recognized text will appear here") return;
+    
     _flutterTts.speak(text);
-
-    // 2. Add to history
-    // We insert at the beginning (index 0) to show the newest item first
     final currentHistory = List<String>.from(history.value);
     currentHistory.insert(0, text);
-    history.value = currentHistory; // This notifies all listeners
-    
-    // 3. Save the updated history list
+    history.value = currentHistory;
     _prefs.setStringList('tts_history', history.value);
   }
 
-  /// Clears all saved history.
   void clearHistory() {
     history.value = [];
     _prefs.setStringList('tts_history', []);
   }
 
-  /// Updates a quick phrase at a specific index and saves the list.
+  void setOutputText(String text) {
+    currentOutputText.value = text;
+  }
+
+  void addQuickPhrase(String newPhrase) {
+    final currentPhrases = List<String>.from(quickPhrases.value);
+    currentPhrases.add(newPhrase);
+    quickPhrases.value = currentPhrases;
+    _prefs.setStringList('tts_quick_phrases', quickPhrases.value);
+  }
+
   void updateQuickPhrase(int index, String newPhrase) {
     final currentPhrases = List<String>.from(quickPhrases.value);
     if (index >= 0 && index < currentPhrases.length) {
       currentPhrases[index] = newPhrase;
-      quickPhrases.value = currentPhrases; // Notifies listeners (like the Home Page)
-      
-      // Save the updated list
+      quickPhrases.value = currentPhrases;
+      _prefs.setStringList('tts_quick_phrases', quickPhrases.value);
+    }
+  }
+  
+  void deleteQuickPhrase(int index) {
+    final currentPhrases = List<String>.from(quickPhrases.value);
+    if (index >= 0 && index < currentPhrases.length) {
+      currentPhrases.removeAt(index);
+      quickPhrases.value = currentPhrases;
       _prefs.setStringList('tts_quick_phrases', quickPhrases.value);
     }
   }
 
-  // --- Setters for Settings ---
-  // These are called by the sliders on the SettingsPage.
+  Future<void> updateProfile({
+    required String newName,
+    required String newEmail,
+    required String newPhone,
+  }) async {
+    username.value = newName;
+    email.value = newEmail;
+    phoneNumber.value = newPhone;
+    
+    await _prefs.setString('profile_name', newName);
+    await _prefs.setString('profile_email', newEmail);
+    await _prefs.setString('profile_phone', newPhone);
+  }
 
+
+  // --- Setters for Settings ---
   void setSpeed(double newSpeed) {
     speed.value = newSpeed;
   }
@@ -111,15 +122,12 @@ class TTSManager {
   }
 
   // --- Private Helper Methods ---
-
-  /// Saves the current speed and pitch values to the phone's storage.
   Future<void> _saveSettings() async {
     await _prefs.setDouble('tts_speed', speed.value);
     await _prefs.setDouble('tts_pitch', pitch.value);
     _setTtsProperties();
   }
 
-  /// Applies the current properties (speed/pitch) to the TTS engine.
   void _setTtsProperties() {
     _flutterTts.setLanguage("en-US");
     _flutterTts.setSpeechRate(speed.value);

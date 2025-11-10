@@ -12,6 +12,7 @@ import 'history_page.dart';
 import 'profile_page.dart'; 
 import 'tts_manager.dart'; 
 import 'phrase_editor_page.dart'; 
+import 'edit_profile_page.dart'; 
 
 // This global variable is needed for the app initialization
 late CameraDescription firstCamera;
@@ -21,8 +22,8 @@ Future<void> main() async {
   // can be called before `runApp()`
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize TTS manager (loads settings, sets up engine)
-  ttsManager; 
+  // --- FIX: Wait for the TTS manager to be fully initialized ---
+  await ttsManager.initialize(); 
 
   // Obtain a list of the available cameras on the device.
   final cameras = await availableCameras();
@@ -67,6 +68,7 @@ class UnmuteApp extends StatelessWidget {
         '/history': (context) => const HistoryPage(),
         '/profile': (context) => const NewProfilePage(), 
         '/phrase_editor': (context) => const PhraseEditorPage(), 
+        '/edit_profile': (context) => const EditProfilePage(), 
       },
     );
   }
@@ -627,7 +629,6 @@ class GestureHomePage extends StatefulWidget {
 }
 
 class _GestureHomePageState extends State<GestureHomePage> {
-  String _outputText = "Your recognized text will appear here";
   bool _isCameraOn = false;
   
   CameraController? _cameraController;
@@ -644,6 +645,8 @@ class _GestureHomePageState extends State<GestureHomePage> {
   void initState() {
     super.initState.call();
     _initializePoseDetector();
+    // --- FIX: REMOVED the line that resets output text ---
+    // ttsManager.setOutputText("Your recognized text will appear here");
   }
 
   void _initializePoseDetector() {
@@ -679,8 +682,8 @@ class _GestureHomePageState extends State<GestureHomePage> {
       print("Error initializing camera: $e");
       setState(() {
          _isCameraOn = false; 
-         _outputText = "Could not initialize camera. Please check permissions.";
       });
+      ttsManager.setOutputText("Could not initialize camera. Please check permissions.");
     }
   }
 
@@ -690,7 +693,6 @@ class _GestureHomePageState extends State<GestureHomePage> {
     setState(() { _isDetectingPoses = true; });
 
     try {
-      // --- FIX: Call the function *without* the underscore ---
       final InputImage inputImage = createInputImageFromCameraImage(image);
       final List<Pose> poses = await _poseDetector.processImage(inputImage);
       if (mounted) { _analyzePoses(poses); }
@@ -717,8 +719,8 @@ class _GestureHomePageState extends State<GestureHomePage> {
   void _triggerGesture(String text) {
     if (_isGestureOnCooldown || !mounted) return;
 
+    ttsManager.setOutputText(text);
     setState(() {
-      _outputText = text;
       _isGestureOnCooldown = true;
     });
     ttsManager.speak(text);
@@ -750,32 +752,31 @@ class _GestureHomePageState extends State<GestureHomePage> {
           _isCameraOn = false;
           _isCameraInitialized = false;
           _cameraController = null;
-          _outputText = "Camera is off";
         });
+        ttsManager.setOutputText("Camera is off");
       }
       print("Camera stopping...");
     } else {
       if (mounted) {
         setState(() {
           _isCameraOn = true;
-          _outputText = "Initializing camera...";
         });
+        ttsManager.setOutputText("Initializing camera...");
       }
       print("Camera starting...");
       await _initializeCamera();
       
       if(mounted && _isCameraInitialized) {
-        setState(() {
-           _outputText = "Camera is on. Show me a gesture!";
-        });
+        ttsManager.setOutputText("Camera is on. Show me a gesture!");
       }
     }
   }
 
   void _speakText() {
-    if (_outputText.isNotEmpty) {
-      print("Speaking: $_outputText");
-      ttsManager.speak(_outputText);
+    final textToSpeak = ttsManager.currentOutputText.value;
+    if (textToSpeak.isNotEmpty && textToSpeak != "Your recognized text will appear here") {
+      print("Speaking: $textToSpeak");
+      ttsManager.speak(textToSpeak);
     }
   }
 
@@ -785,24 +786,28 @@ class _GestureHomePageState extends State<GestureHomePage> {
     const Color backgroundColor = Color(0xFFF4F8FA); // Light blue/white
     const Color cardColor = Colors.white;
 
-    // This Scaffold is now the BODY of the MainLayout
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Remove the back arrow
         automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              "Hi, User!", // Placeholder
-              style: const TextStyle(
-                color: primaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 28,
-              ),
+            // --- DYNAMIC USERNAME ---
+            ValueListenableBuilder<String>(
+              valueListenable: ttsManager.username,
+              builder: (context, name, child) {
+                return Text(
+                  "Hi, $name!", 
+                  style: const TextStyle(
+                    color: primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 28,
+                  ),
+                );
+              }
             ),
             Text(
               "Express Yourself Freely",
@@ -889,9 +894,21 @@ class _GestureHomePageState extends State<GestureHomePage> {
                             Icon(Icons.no_photography_rounded,
                                 color: Colors.grey[400], size: 50),
                             const SizedBox(height: 8),
-                            Text(
-                              _isCameraOn ? "Initializing..." : "Camera is off",
-                              style: TextStyle(color: Colors.grey[600]),
+                            ValueListenableBuilder<String>(
+                              valueListenable: ttsManager.currentOutputText,
+                              builder: (context, output, child) {
+                                if (!_isCameraOn) {
+                                  return Text(
+                                    "Camera is off",
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  );
+                                } else {
+                                  return Text(
+                                    "Initializing...",
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  );
+                                }
+                              }
                             ),
                           ],
                         ),
@@ -948,12 +965,18 @@ class _GestureHomePageState extends State<GestureHomePage> {
                 borderRadius: BorderRadius.circular(15),
               ),
               child: SingleChildScrollView( 
-                child: Text(
-                  _outputText,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[800],
-                  ),
+                child: ValueListenableBuilder<String>(
+                  valueListenable: ttsManager.currentOutputText,
+                  builder: (context, output, child) {
+                    bool isPlaceholder = output == "Your recognized text will appear here";
+                    return Text(
+                      output,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isPlaceholder ? Colors.grey[500] : Colors.grey[800],
+                      ),
+                    );
+                  }
                 ),
               ),
             ),
@@ -966,7 +989,6 @@ class _GestureHomePageState extends State<GestureHomePage> {
 
 // --- GESTURE LOGIC MOVED OUTSIDE THE CLASS ---
 
-// --- FIX: This function is now *outside* the class ---
 InputImage createInputImageFromCameraImage(CameraImage image) {
   final cameraRotation = InputImageRotation.rotation270deg;
 
@@ -1071,4 +1093,4 @@ bool isPointing(Pose pose) {
   bool leftFingerIsHigh = leftIndex.y < leftWrist.y;
   bool rightFingerIsHigh = rightIndex.y < rightWrist.y;
   return (isLeftPointingOut && leftFingerIsHigh) || (isRightPointingOut && rightFingerIsHigh);
-}  
+}
